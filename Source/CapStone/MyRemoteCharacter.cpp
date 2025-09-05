@@ -25,8 +25,8 @@ void AMyRemoteCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	// 부드러운 보간 이동
-	FVector NewLoc = FMath::VInterpTo(GetActorLocation(), TargetLocation, DeltaTime, 5.0f);
-	FRotator NewRot = FMath::RInterpTo(GetActorRotation(), TargetRotation, DeltaTime, 5.0f);
+	FVector NewLoc = FMath::VInterpTo(GetActorLocation(), TargetLocation, DeltaTime, InterpSpeed);
+	FRotator NewRot = FMath::RInterpTo(GetActorRotation(), TargetRotation, DeltaTime, InterpSpeed);
 	SetActorLocationAndRotation(NewLoc, NewRot);
 }
 

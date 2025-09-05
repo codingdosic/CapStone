@@ -101,7 +101,8 @@ void AMyWebSocketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 void AMyWebSocketCharacter::ConnectWebSocket()
 {
     // 웹소켓 모듈에서 인스턴스를 생성하고, 로컬 서버에 연결함
-    WebSocket = WebSocketManager->CreateWebSocket(TEXT("ws://0.tcp.jp.ngrok.io:14176"));
+    WebSocket = WebSocketManager->CreateWebSocket(TEXT("ws://localhost:8080"));
+
 
     // 메시지 수신 콜백
     WebSocket->OnMessage().AddLambda([this](const FString& Message)

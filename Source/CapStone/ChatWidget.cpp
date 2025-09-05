@@ -41,6 +41,8 @@ void UChatWidget::AddChatMessage(const FString& SenderId, const FString& Message
 
 void UChatWidget::OnChatTextCommitted(const FText& Text, ETextCommit::Type CommitMethod)
 {
+    UE_LOG(LogTemp, Warning, TEXT("OnChatTextCommitted Called! Commit Method: %d"), (int)CommitMethod);
+
     if (CommitMethod == ETextCommit::OnEnter)
     {
         if (OwnerCharacter && !Text.IsEmpty())

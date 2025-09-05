@@ -16,6 +16,8 @@ void UWebSocketManager::Initialize(UClass* InRemoteCharacterClass, UWorld* InWor
 
 void UWebSocketManager::OnWebSocketMessage(const FString& Message)
 {
+    UE_LOG(LogTemp, Log, TEXT("Received WebSocket Message: %s"), *Message);
+
     // 메시지 JSON으로 파싱 준비
     TSharedPtr<FJsonObject> JsonObject;
     TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);

@@ -15,6 +15,9 @@ public:
     FVector TargetLocation;
     FRotator TargetRotation;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float InterpSpeed = 5.0f;
+
     AMyRemoteCharacter();
 
     void UpdateTransformFromNetwork(const FVector& NewLocation, const FRotator& NewRotation);
