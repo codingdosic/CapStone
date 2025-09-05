@@ -1,0 +1,23 @@
+# Visual Studio files
+.vs/
+*.VC.db
+*.VC.VC.opendb
+*.sln.docstates
+*.suo
+*.user
+*.vcxproj.user
+
+# Unreal Engine generated files
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Build files
+Build/
+
+# Other
+*.bak
+*.log
+*.patch
+*.pdb
