@@ -27,6 +27,10 @@ void AMyWebSocketCharacter::BeginPlay()
     // 부모의 메서드 호출
     Super::BeginPlay();
 
+    // WebSocketManager를 먼저 생성하고 초기화합니다.
+    WebSocketManager = NewObject<UWebSocketManager>(this);
+    WebSocketManager->Initialize(OtherPlayerBlueprintClass, GetWorld(), this);
+
     if (ChatWidgetClass)
     {
         ChatWidgetInstance = CreateWidget<UChatWidget>(GetWorld(), ChatWidgetClass);
@@ -41,25 +45,16 @@ void AMyWebSocketCharacter::BeginPlay()
     // 모듈을 동적으로 로드
     FModuleManager::Get().LoadModuleChecked<FWebSocketsModule>("WebSockets");
     ConnectWebSocket();
-
-    // 액터 위치 저장
-    LastSentLocation = GetActorLocation();
-    // 액터 회전 저장
-    LastSentRotation = GetActorRotation();
-
-    WebSocketManager = NewObject<UWebSocketManager>(this);
-    WebSocketManager->Initialize(OtherPlayerBlueprintClass, GetWorld(), this);
-
 }
 
 // 액터 제거나 게임 종료시 호출
 void AMyWebSocketCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     // 서버에 연결되어 있으면 실행
-    if (WebSocket.IsValid() && WebSocket->IsConnected())
+    if (WebSocketManager && WebSocketManager->WebSocket.IsValid() && WebSocketManager->WebSocket->IsConnected())
     {
         // 연결 종료
-        WebSocket->Close();
+        WebSocketManager->WebSocket->Close();
     }
 
     // 부모의 메서드 호출
@@ -72,19 +67,10 @@ void AMyWebSocketCharacter::Tick(float DeltaTime)
     // 부모의 메서드 호출
     Super::Tick(DeltaTime);
 
-    // 마지막 전송 이후 경과 시간
-    TimeSinceLastSend += DeltaTime;
-
-    // 경과 시간이 전송 간격을 넘어가면 실행  
-    if (TimeSinceLastSend >= SendInterval)
+    if (WebSocketManager)
     {
-        // 데이터 전송
-        SendTransformData();
-
-        // 경과 시간 초기화
-        TimeSinceLastSend = 0.0f;
+        WebSocketManager->Tick(DeltaTime);
     }
-
 }
 
 // 조작 설정
@@ -101,11 +87,11 @@ void AMyWebSocketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 void AMyWebSocketCharacter::ConnectWebSocket()
 {
     // 웹소켓 모듈에서 인스턴스를 생성하고, 로컬 서버에 연결함
-    WebSocket = WebSocketManager->CreateWebSocket(TEXT("ws://localhost:8080"));
+    WebSocketManager->WebSocket = WebSocketManager->CreateWebSocket(TEXT("ws://localhost:8080"));
 
 
     // 메시지 수신 콜백
-    WebSocket->OnMessage().AddLambda([this](const FString& Message)
+    WebSocketManager->WebSocket->OnMessage().AddLambda([this](const FString& Message)
         {
             // 메시지 처리
             //OnWebSocketMessage(Message);
@@ -114,52 +100,11 @@ void AMyWebSocketCharacter::ConnectWebSocket()
 
 
     // 웹소켓 연결 시도
-    WebSocket->Connect();
+    WebSocketManager->WebSocket->Connect();
 }
 
 
-// 매 프레임마다 데이터 전송하는 함수
-void AMyWebSocketCharacter::SendTransformData()
-{
-    // 웹소켓 유효하지 않으면 종료
-    if (!WebSocket.IsValid() || !WebSocket->IsConnected()) return;
 
-    // 위치 저장
-    FVector Location = GetActorLocation();
-    // 회전 저장
-    FRotator Rotation = GetActorRotation();
-
-    // 미세한 이동은 무시하기
-    if (Location.Equals(LastSentLocation, 0.01f) && Rotation.Equals(LastSentRotation, 0.01f))
-    {
-        return;
-    }
-
-    // JSON 객체 생성
-    TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-    JsonObject->SetStringField("id", MySocketId); // id
-    JsonObject->SetStringField("type", "transform"); // 이동
-    JsonObject->SetNumberField("x", Location.X); // 위치
-    JsonObject->SetNumberField("y", Location.Y);
-    JsonObject->SetNumberField("z", Location.Z);
-    JsonObject->SetNumberField("pitch", Rotation.Pitch); // 회전
-    JsonObject->SetNumberField("yaw", Rotation.Yaw);
-    JsonObject->SetNumberField("roll", Rotation.Roll);
-
-    // JSON -> FString 으로 직렬화 
-    FString OutputString;
-    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
-    FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
-
-    // 직렬화한 데이터 서버로 전송
-    WebSocket->Send(OutputString);
-
-    // 위치 저장하고 다음 tick에서 비교
-    LastSentLocation = Location;
-    LastSentRotation = Rotation;
-
-
-}
 
 void AMyWebSocketCharacter::ToggleChatInput()
 {
@@ -175,7 +120,7 @@ void AMyWebSocketCharacter::ToggleChatInput()
 
             // 입력 모드 전환
             FInputModeGameAndUI InputMode;
-            InputMode.SetWidgetToFocus(ChatWidgetInstance->TakeWidget());
+            InputMode.SetWidgetToFocus(ChatWidgetInstance->ChatInputBox->TakeWidget());
             InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
             PC->SetInputMode(InputMode);
             PC->bShowMouseCursor = true;
@@ -195,7 +140,7 @@ void AMyWebSocketCharacter::ToggleChatInput()
             ChatWidgetInstance->FocusOnInput();
 
             FInputModeGameAndUI InputMode;
-            InputMode.SetWidgetToFocus(ChatWidgetInstance->TakeWidget());
+            InputMode.SetWidgetToFocus(ChatWidgetInstance->ChatInputBox->TakeWidget());
             InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
             PC->SetInputMode(InputMode);
             PC->bShowMouseCursor = true;
@@ -215,12 +160,12 @@ void AMyWebSocketCharacter::ToggleChatInput()
 
 void AMyWebSocketCharacter::SendChatMessage(const FString& Message)
 {
-    if (!WebSocket.IsValid() || !WebSocket->IsConnected())
+    if (!WebSocketManager || !WebSocketManager->WebSocket.IsValid() || !WebSocketManager->WebSocket->IsConnected())
         return;
 
     // JSON 메시지 생성
     TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-    JsonObject->SetStringField("id", MySocketId);
+    JsonObject->SetStringField("id", WebSocketManager->MySocketId);
     JsonObject->SetStringField("type", "chat"); // 타입: 채팅 메시지
     JsonObject->SetStringField("message", Message);
 
@@ -230,7 +175,14 @@ void AMyWebSocketCharacter::SendChatMessage(const FString& Message)
     FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
 
     // 웹소켓으로 전송
-    WebSocket->Send(OutputString);
+    WebSocketManager->WebSocket->Send(OutputString);
 }
 
-
+FString AMyWebSocketCharacter::GetMySocketId() const
+{
+    if (WebSocketManager)
+    {
+        return WebSocketManager->MySocketId;
+    }
+    return FString();
+}

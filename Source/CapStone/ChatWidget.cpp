@@ -57,7 +57,7 @@ void UChatWidget::OnChatTextCommitted(const FText& Text, ETextCommit::Type Commi
                 if (NewTextBlock)
                 {
                     // 내 ID 앞 4자리 추출
-                    FString ShortId = OwnerCharacter->MySocketId.Left(4);
+                    FString ShortId = OwnerCharacter->GetMySocketId().Left(4);
 
                     // "abcd: 메시지" 형식으로 출력
                     FString FormattedMessage = FString::Printf(TEXT("%s: %s"), *ShortId, *Text.ToString());

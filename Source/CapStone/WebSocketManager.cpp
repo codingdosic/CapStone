@@ -33,7 +33,7 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
         if (Type == "id")
         {
             // id 저장
-            OwnerCharacter->MySocketId = JsonObject->GetStringField("id");
+            MySocketId = JsonObject->GetStringField("id");
         }
 
 
@@ -44,7 +44,7 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
             FString SenderId = JsonObject->GetStringField("id");
 
             // 내 ID면 무시
-            if (SenderId == OwnerCharacter->MySocketId)
+            if (SenderId == MySocketId)
             {
                 return;
             }
@@ -116,7 +116,7 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
             FString SenderId = JsonObject->GetStringField("id");
             FString ChatText = JsonObject->GetStringField("message");
 
-            if (SenderId == OwnerCharacter->MySocketId)
+            if (SenderId == MySocketId)
             {
                 // 자기 메시지는 무시
                 return;
@@ -150,7 +150,7 @@ void UWebSocketManager::SendChatMessage(const FString& ChatMessage)
         // JSON 형태로 메시지 구성
         TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
         JsonObject->SetStringField("type", "chat");
-        JsonObject->SetStringField("id", OwnerCharacter->MySocketId);
+        JsonObject->SetStringField("id", MySocketId);
         JsonObject->SetStringField("message", ChatMessage);
 
         FString OutputString;
@@ -160,5 +160,64 @@ void UWebSocketManager::SendChatMessage(const FString& ChatMessage)
         // 웹소켓으로 메시지 전송
         WebSocket->Send(OutputString);
     }
+}
+
+void UWebSocketManager::Tick(float DeltaTime)
+{
+    // 마지막 전송 이후 경과 시간
+    TimeSinceLastSend += DeltaTime;
+
+    // 경과 시간이 전송 간격을 넘어가면 실행  
+    if (TimeSinceLastSend >= SendInterval)
+    {
+        // 데이터 전송
+        SendTransformData();
+
+        // 경과 시간 초기화
+        TimeSinceLastSend = 0.0f;
+    }
+}
+
+void UWebSocketManager::SendTransformData()
+{
+    // 웹소켓 또는 오너 캐릭터가 유효하지 않으면 종료
+    if (!WebSocket.IsValid() || !WebSocket->IsConnected() || !OwnerCharacter)
+    {
+        return;
+    }
+
+    // 위치 저장
+    FVector Location = OwnerCharacter->GetActorLocation();
+    // 회전 저장
+    FRotator Rotation = OwnerCharacter->GetActorRotation();
+
+    // 미세한 이동은 무시하기
+    if (Location.Equals(LastSentLocation, 0.01f) && Rotation.Equals(LastSentRotation, 0.01f))
+    {
+        return;
+    }
+
+    // JSON 객체 생성
+    TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+    JsonObject->SetStringField("id", MySocketId); // id
+    JsonObject->SetStringField("type", "transform"); // 이동
+    JsonObject->SetNumberField("x", Location.X); // 위치
+    JsonObject->SetNumberField("y", Location.Y);
+    JsonObject->SetNumberField("z", Location.Z);
+    JsonObject->SetNumberField("pitch", Rotation.Pitch); // 회전
+    JsonObject->SetNumberField("yaw", Rotation.Yaw);
+    JsonObject->SetNumberField("roll", Rotation.Roll);
+
+    // JSON -> FString 으로 직렬화 
+    FString OutputString;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
+    FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+
+    // 직렬화한 데이터 서버로 전송
+    WebSocket->Send(OutputString);
+
+    // 위치 저장하고 다음 tick에서 비교
+    LastSentLocation = Location;
+    LastSentRotation = Rotation;
 }
 

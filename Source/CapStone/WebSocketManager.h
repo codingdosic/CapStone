@@ -18,6 +18,12 @@ class CAPSTONE_API UWebSocketManager : public UObject
 	
 public:
 
+	// 웹소켓 객체
+	TSharedPtr<IWebSocket> WebSocket;
+
+	// 소켓 고유 ID
+	FString MySocketId;
+
     // 클래스, 월드, 로컬 캐릭터 등 초기 참조값 설정
     void Initialize(UClass* InRemoteCharacterClass, UWorld* InWorld, AMyWebSocketCharacter* InOwnerCharacter);
 
@@ -27,14 +33,17 @@ public:
 
     void SendChatMessage(const FString& ChatMessage);
 
-private:
+    // 캐릭터의 Tick에서 호출될 함수
+    void Tick(float DeltaTime);
 
 private:
-    // 웹소켓 객체
-    TSharedPtr<IWebSocket> WebSocket;
 
-    // 소켓 고유 ID
-    FString MySocketId;
+    // 캐릭터 상태정보 변환 및 전송
+    void SendTransformData();
+
+    // 전송 간격
+    float TimeSinceLastSend = 0.0f;
+    float SendInterval = 0.1f;
 
     // 마지막으로 전송한 위치/회전
     FVector LastSentLocation;

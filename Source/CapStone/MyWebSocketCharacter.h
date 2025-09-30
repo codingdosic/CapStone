@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "CapStoneCharacter.h"
-#include "IWebSocket.h"
 #include "Blueprint/UserWidget.h"
 #include "MyRemoteCharacter.h"
 #include "Components/EditableTextBox.h"
@@ -49,35 +48,23 @@ public:
 	UFUNCTION()
 	void SendChatMessage(const FString& Message);
 
+	UFUNCTION(BlueprintCallable, Category = "WebSocket")
+	FString GetMySocketId() const;
+
 
 private:
 
 
-	// 웹소켓 객체
-	TSharedPtr<IWebSocket> WebSocket;
-
-	// 서버 연결 및 콜백 바인딩
-	void ConnectWebSocket();
-
 	
 
-	// 캐릭터 상태정보 변환 및 전송
-	void SendTransformData();
-
-	void ToggleChatInput();
-
-	// 전송 간격
-	float TimeSinceLastSend = 0.0f;
-	float SendInterval = 0.1f;
-
-	// 최근 위치/회전
-	FVector LastSentLocation;
-	FRotator LastSentRotation;
-
-	// 블루프린트에서 설정할 수 있도록 캐릭터 클래스도 선언
-	UPROPERTY(EditAnywhere, Category = "WebSocket")
-	TSubclassOf<AMyRemoteCharacter> OtherPlayerBlueprintClass;
-
-	UPROPERTY()
-	UWebSocketManager* WebSocketManager;
-};
+	    // 서버 연결 및 콜백 바인딩
+	    void ConnectWebSocket();
+	
+	    void ToggleChatInput();
+	
+	    // 블루프린트에서 설정할 수 있도록 캐릭터 클래스도 선언
+	    UPROPERTY(EditAnywhere, Category = "WebSocket")
+	    TSubclassOf<AMyRemoteCharacter> OtherPlayerBlueprintClass;
+	
+	    UPROPERTY()
+	    UWebSocketManager* WebSocketManager;};
