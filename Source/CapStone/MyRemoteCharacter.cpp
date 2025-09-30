@@ -7,7 +7,8 @@
 AMyRemoteCharacter::AMyRemoteCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true; // Tick 활성화 (중요!)
-	bReplicates = false; // 서버 기반이 아니므로 복제는 불필요
+	bReplicates = true; // 원격 플레이어이므로 복제 필요
+	bAlwaysRelevant = true; // 항상 클라이언트에게 관련성 있도록 설정
 
 	UE_LOG(LogTemp, Warning, TEXT("RemoteCharacter constructed."));
 }

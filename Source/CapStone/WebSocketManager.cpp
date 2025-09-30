@@ -27,8 +27,16 @@ void UWebSocketManager::Connect()
 
     if (WebSocket.IsValid())
     {
+        // 새로운 연결 시 초기 전송 플래그 초기화
+        bHasSentInitialTransform = false;
+
         WebSocket->OnMessage().AddUObject(this, &UWebSocketManager::OnWebSocketMessage);
-        WebSocket->OnConnected().AddLambda([]() { UE_LOG(LogTemp, Warning, TEXT("WebSocket Connected!")); });
+        WebSocket->OnConnected().AddLambda([this]()
+        {
+            UE_LOG(LogTemp, Warning, TEXT("WebSocket Connected!"));
+            // 연결 성공 시 즉시 Transform 데이터 전송
+            SendTransformData();
+        });
         WebSocket->OnConnectionError().AddLambda([](const FString& Error) { UE_LOG(LogTemp, Error, TEXT("WebSocket Connection Error: %s"), *Error); });
         WebSocket->OnClosed().AddLambda([](int32 StatusCode, const FString& Reason, bool bWasClean) { UE_LOG(LogTemp, Warning, TEXT("WebSocket Closed. Code: %d, Reason: %s, Clean: %s"), StatusCode, *Reason, (bWasClean ? TEXT("true") : TEXT("false"))); });
 
@@ -243,8 +251,8 @@ void UWebSocketManager::SendTransformData()
     // 회전 저장
     FRotator Rotation = OwnerCharacter->GetActorRotation();
 
-    // 미세한 이동은 무시하기
-    if (Location.Equals(LastSentLocation, 0.01f) && Rotation.Equals(LastSentRotation, 0.01f))
+    // 초기 전송이 아니면서, 미세한 이동도 없으면 전송하지 않음
+    if (!bHasSentInitialTransform && Location.Equals(LastSentLocation, 0.01f) && Rotation.Equals(LastSentRotation, 0.01f))
     {
         return;
     }
@@ -267,6 +275,9 @@ void UWebSocketManager::SendTransformData()
 
     // 직렬화한 데이터 서버로 전송
     WebSocket->Send(OutputString);
+
+    // 초기 전송 플래그 설정
+    bHasSentInitialTransform = true;
 
     // 위치 저장하고 다음 tick에서 비교
     LastSentLocation = Location;
