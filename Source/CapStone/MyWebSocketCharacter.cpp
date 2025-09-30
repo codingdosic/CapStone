@@ -2,15 +2,12 @@
 
 
 #include "MyWebSocketCharacter.h"
-#include "WebSocketsModule.h"
-#include "IWebSocket.h"
+#include "CapStoneGameInstance.h"
+#include "WebSocketManager.h"
 #include "Json.h"
 #include "JsonUtilities.h"
-#include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
-#include "MyRemoteCharacter.h" // 다른 플레이어용 클래스
 #include "Blueprint/UserWidget.h"
-#include "Kismet/GameplayStatics.h"
 #include "ChatWidget.h"
 
 // 생성자
@@ -27,9 +24,27 @@ void AMyWebSocketCharacter::BeginPlay()
     // 부모의 메서드 호출
     Super::BeginPlay();
 
-    // WebSocketManager를 먼저 생성하고 초기화합니다.
-    WebSocketManager = NewObject<UWebSocketManager>(this);
-    WebSocketManager->Initialize(OtherPlayerBlueprintClass, GetWorld(), this);
+    // GameInstance에서 WebSocketManager 가져오기
+    UCapStoneGameInstance* GameInstance = GetGameInstance<UCapStoneGameInstance>();
+    if (GameInstance)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AMyWebSocketCharacter::BeginPlay - GameInstance is Valid."));
+        WebSocketManager = GameInstance->GetWebSocketManager();
+        if (WebSocketManager)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AMyWebSocketCharacter::BeginPlay - WebSocketManager retrieved. Registering character."));
+            // WebSocketManager에 이 캐릭터를 등록
+            WebSocketManager->RegisterPlayerCharacter(this);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("AMyWebSocketCharacter::BeginPlay - Failed to retrieve WebSocketManager from GameInstance."));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AMyWebSocketCharacter::BeginPlay - Failed to get CapStoneGameInstance."));
+    }
 
     if (ChatWidgetClass)
     {
@@ -41,20 +56,15 @@ void AMyWebSocketCharacter::BeginPlay()
             ChatWidgetInstance->SetOwnerCharacter(this);
         }
     }
-
-    // 모듈을 동적으로 로드
-    FModuleManager::Get().LoadModuleChecked<FWebSocketsModule>("WebSockets");
-    ConnectWebSocket();
 }
 
 // 액터 제거나 게임 종료시 호출
 void AMyWebSocketCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    // 서버에 연결되어 있으면 실행
-    if (WebSocketManager && WebSocketManager->WebSocket.IsValid() && WebSocketManager->WebSocket->IsConnected())
+    // WebSocketManager에서 이 캐릭터 등록 해제
+    if (WebSocketManager)
     {
-        // 연결 종료
-        WebSocketManager->WebSocket->Close();
+        WebSocketManager->UnregisterPlayerCharacter();
     }
 
     // 부모의 메서드 호출
@@ -82,29 +92,6 @@ void AMyWebSocketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
     PlayerInputComponent->BindAction("ToggleChat", IE_Pressed, this, &AMyWebSocketCharacter::ToggleChatInput);
 
 }
-
-// 웹소켓 객체 생성
-void AMyWebSocketCharacter::ConnectWebSocket()
-{
-    // 웹소켓 모듈에서 인스턴스를 생성하고, 로컬 서버에 연결함
-    WebSocketManager->WebSocket = WebSocketManager->CreateWebSocket(TEXT("ws://localhost:8080"));
-
-
-    // 메시지 수신 콜백
-    WebSocketManager->WebSocket->OnMessage().AddLambda([this](const FString& Message)
-        {
-            // 메시지 처리
-            //OnWebSocketMessage(Message);
-            WebSocketManager->OnWebSocketMessage(Message);
-        });
-
-
-    // 웹소켓 연결 시도
-    WebSocketManager->WebSocket->Connect();
-}
-
-
-
 
 void AMyWebSocketCharacter::ToggleChatInput()
 {
@@ -160,22 +147,10 @@ void AMyWebSocketCharacter::ToggleChatInput()
 
 void AMyWebSocketCharacter::SendChatMessage(const FString& Message)
 {
-    if (!WebSocketManager || !WebSocketManager->WebSocket.IsValid() || !WebSocketManager->WebSocket->IsConnected())
-        return;
-
-    // JSON 메시지 생성
-    TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-    JsonObject->SetStringField("id", WebSocketManager->MySocketId);
-    JsonObject->SetStringField("type", "chat"); // 타입: 채팅 메시지
-    JsonObject->SetStringField("message", Message);
-
-    // JSON -> 문자열 직렬화
-    FString OutputString;
-    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
-    FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
-
-    // 웹소켓으로 전송
-    WebSocketManager->WebSocket->Send(OutputString);
+    if (WebSocketManager)
+    {
+        WebSocketManager->SendChatMessage(Message);
+    }
 }
 
 FString AMyWebSocketCharacter::GetMySocketId() const

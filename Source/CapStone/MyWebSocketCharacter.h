@@ -53,18 +53,8 @@ public:
 
 
 private:
+    void ToggleChatInput();
 
-
-	
-
-	    // 서버 연결 및 콜백 바인딩
-	    void ConnectWebSocket();
-	
-	    void ToggleChatInput();
-	
-	    // 블루프린트에서 설정할 수 있도록 캐릭터 클래스도 선언
-	    UPROPERTY(EditAnywhere, Category = "WebSocket")
-	    TSubclassOf<AMyRemoteCharacter> OtherPlayerBlueprintClass;
-	
-	    UPROPERTY()
-	    UWebSocketManager* WebSocketManager;};
+    UPROPERTY()
+    UWebSocketManager* WebSocketManager; // 소유하지 않고, 참조만 저장
+};

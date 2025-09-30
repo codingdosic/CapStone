@@ -7,16 +7,61 @@
 #include "JsonUtilities.h"
 #include "ChatWidget.h"
 
-void UWebSocketManager::Initialize(UClass* InRemoteCharacterClass, UWorld* InWorld, AMyWebSocketCharacter* InOwnerCharacter)
+void UWebSocketManager::Initialize(UClass* InRemoteCharacterClass, UWorld* InWorld)
 {
     RemoteCharacterClass = InRemoteCharacterClass;
     World = InWorld;
-    OwnerCharacter = InOwnerCharacter;
+    OwnerCharacter = nullptr; // 처음에는 Owner가 없음
+}
+
+void UWebSocketManager::Connect()
+{
+    UE_LOG(LogTemp, Warning, TEXT("UWebSocketManager::Connect - Attempting to connect..."));
+
+    if (!FModuleManager::Get().IsModuleLoaded("WebSockets"))
+    {
+        FModuleManager::Get().LoadModule("WebSockets");
+    }
+
+    WebSocket = CreateWebSocket(TEXT("ws://localhost:8080"));
+
+    if (WebSocket.IsValid())
+    {
+        WebSocket->OnMessage().AddUObject(this, &UWebSocketManager::OnWebSocketMessage);
+        WebSocket->OnConnected().AddLambda([]() { UE_LOG(LogTemp, Warning, TEXT("WebSocket Connected!")); });
+        WebSocket->OnConnectionError().AddLambda([](const FString& Error) { UE_LOG(LogTemp, Error, TEXT("WebSocket Connection Error: %s"), *Error); });
+        WebSocket->OnClosed().AddLambda([](int32 StatusCode, const FString& Reason, bool bWasClean) { UE_LOG(LogTemp, Warning, TEXT("WebSocket Closed. Code: %d, Reason: %s, Clean: %s"), StatusCode, *Reason, (bWasClean ? TEXT("true") : TEXT("false"))); });
+
+        WebSocket->Connect();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("UWebSocketManager::Connect - Failed to create WebSocket instance."));
+    }
+}
+
+void UWebSocketManager::Close()
+{
+    if (WebSocket.IsValid() && WebSocket->IsConnected())
+    {
+        WebSocket->Close();
+    }
+}
+
+void UWebSocketManager::RegisterPlayerCharacter(AMyWebSocketCharacter* InCharacter)
+{
+    OwnerCharacter = InCharacter;
+}
+
+void UWebSocketManager::UnregisterPlayerCharacter()
+{
+    OwnerCharacter = nullptr;
 }
 
 void UWebSocketManager::OnWebSocketMessage(const FString& Message)
 {
     UE_LOG(LogTemp, Log, TEXT("Received WebSocket Message: %s"), *Message);
+    UE_LOG(LogTemp, Warning, TEXT("OnWebSocketMessage: OwnerCharacter is %s"), (OwnerCharacter ? *OwnerCharacter->GetName() : TEXT("NULL")));
 
     // 메시지 JSON으로 파싱 준비
     TSharedPtr<FJsonObject> JsonObject;
@@ -63,6 +108,13 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
                 JsonObject->GetNumberField("roll")
             );
 
+            // OwnerCharacter가 유효한지 먼저 확인
+            if (!OwnerCharacter)
+            {
+                UE_LOG(LogTemp, Error, TEXT("OnWebSocketMessage: OwnerCharacter is NULL when trying to process transform data!"));
+                return;
+            }
+
             // 만약 맵 상에 전송자 id가 없을 시 -> 새로 접속
             if (!OwnerCharacter->OtherPlayersMap.Contains(SenderId))
             {
@@ -80,7 +132,7 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
 
                 // 현재 월드에 AMyRemoteCharacter의 블루프린트로 T형 액터를 동적으로 전달받은 위치에 생성
                 AMyRemoteCharacter* NewPlayer = World->SpawnActor<AMyRemoteCharacter>(
-                    RemoteCharacterClass, NewLocation, NewRotation, SpawnParams);
+                    RemoteCharacterClass, NewLocation + FVector(0.0f, (OwnerCharacter->OtherPlayersMap.Num() + 1) * 100.0f, 0.0f), NewRotation, SpawnParams);
 
                 // 생성 성공 시
                 if (NewPlayer)
@@ -88,7 +140,7 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
                     // 다른 플레이어들 정보에 저장
                     OwnerCharacter->OtherPlayersMap.Add(SenderId, NewPlayer);
                     // 생성 성공 로그 출력
-                    UE_LOG(LogTemp, Warning, TEXT("Spawning new remote player for ID: %s"), *SenderId);
+                    UE_LOG(LogTemp, Warning, TEXT("Spawning new remote player for ID: %s at %s"), *SenderId, *NewPlayer->GetActorLocation().ToString());
                 }
                 // 생성 실패 시 
                 else

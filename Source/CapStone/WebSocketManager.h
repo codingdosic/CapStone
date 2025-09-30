@@ -24,8 +24,20 @@ public:
 	// 소켓 고유 ID
 	FString MySocketId;
 
-    // 클래스, 월드, 로컬 캐릭터 등 초기 참조값 설정
-    void Initialize(UClass* InRemoteCharacterClass, UWorld* InWorld, AMyWebSocketCharacter* InOwnerCharacter);
+    // 클래스, 월드 초기 참조값 설정
+    void Initialize(UClass* InRemoteCharacterClass, UWorld* InWorld);
+
+	// 웹소켓 연결
+	void Connect();
+
+	// 웹소켓 연결 종료
+	void Close();
+
+	// 플레이어 캐릭터 등록
+	void RegisterPlayerCharacter(AMyWebSocketCharacter* InCharacter);
+
+	// 플레이어 캐릭터 등록 해제
+	void UnregisterPlayerCharacter();
 
     void OnWebSocketMessage(const FString& Message);
 
@@ -61,4 +73,7 @@ private:
 
     // 다른 플레이어들을 ID로 매핑
     TMap<FString, AMyRemoteCharacter*> OtherPlayersMap;
+
+    // 초기 Transform 데이터를 전송했는지 여부
+    bool bHasSentInitialTransform = false;
 };
