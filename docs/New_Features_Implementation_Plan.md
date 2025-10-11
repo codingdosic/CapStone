@@ -73,3 +73,43 @@
 -   언리얼 에디터에서 `AMyRemoteCharacter`가 사용하는 애니메이션 블루프린트를 엽니다.
 -   이벤트 그래프에서 `Try Get Pawn Owner`를 통해 `AMyRemoteCharacter`로 캐스팅한 후, C++에 추가한 `RemoteSpeed` 변수 값을 가져와 애님 그래프 내의 속도 변수(예: `Speed`)에 매 프레임 업데이트합니다.
 -   애님 그래프의 상태 머신(State Machine) 또는 블렌드 스페이스(Blend Space)가 이 `Speed` 변수 값을 사용하여 'Idle'과 'Walk/Run' 애니메이션을 자연스럽게 전환하도록 로직을 수정합니다.
+
+---
+
+## 3. 후속 조치 및 문제 해결 (2025-10-11)
+
+### 3.1. 이름표 미표시 문제 진단 및 해결
+
+- **문제 상황:** `AMyRemoteCharacter`를 상속받는 블루프린트에서 이름표가 표시되지 않는 문제 발생.
+- **원인 분석:**
+    1. C++ 코드 (`AMyRemoteCharacter`, `NameplateWidget`)를 검토한 결과, `NameplateComponent` 생성 및 `SetName` 함수 자체는 정상적으로 구현되어 있었음.
+    2. `WebSocketManager`에서 원격 캐릭터의 `SetName` 함수를 호출하는 로직 또한 정상 확인.
+    3. 가장 유력한 원인으로, `AMyRemoteCharacter` 블루프린트 내 `NameplateComponent`의 **`Widget Class` 속성이 지정되지 않은 것**으로 진단됨. C++에서 컴포넌트만 생성했을 뿐, 실제로 화면에 표시할 위젯 블루프린트(`WBP_Nameplate`)가 연결되지 않았기 때문에 아무것도 보이지 않는 것이었음.
+- **해결 방안:**
+    - `AMyRemoteCharacter`를 상속받는 블루프린트(예: `BP_RemoteCharacter`)를 열고, `NameplateComponent`를 선택.
+    - Details 패널의 `Widget` 카테고리에서 `Widget Class` 속성을 `WBP_Nameplate`로 설정하도록 안내.
+
+### 3.2. 원격 캐릭터 애니메이션 구현 상세 계획
+
+- **목표:** `WebSocket`을 통해 수신되는 `CurrentSpeed`와 `bIsFalling` 값을 사용하여, 원격 캐릭터의 애니메이션(서기, 걷기/뛰기, 점프/낙하)을 구현.
+- **구현 단계 (애니메이션 블루프린트 에디터):**
+
+    1.  **이벤트 그래프 (Event Graph) 설정:**
+        - `Event Blueprint Update Animation` 노드에서 시작.
+        - `Try Get Pawn Owner` 노드로 캐릭터를 가져온 후, `Cast To AMyRemoteCharacter`로 형 변환.
+        - 형 변환에 성공하면, `AMyRemoteCharacter`로부터 `GetCurrentSpeed`와 `Get bIsFalling` 함수를 호출하여 값을 가져옴.
+        - 가져온 두 값을 애니메이션 블루프린트 내의 지역 변수 `Speed`와 `IsFalling`에 매 프레임 저장(Set).
+
+    2.  **애님 그래프 (Anim Graph) 설정:**
+        - **상태 머신 생성:** `Idle`, `WalkRun`, `Fall`의 3개 상태를 가지는 상태 머신을 생성하고 `Output Pose`에 연결.
+        - **상태별 애니메이션 지정:**
+            - `Idle` 상태: '서 있기' 애니메이션 재생.
+            - `WalkRun` 상태: `Speed` 변수를 사용하는 `Blend Space 1D`를 통해 '걷기/뛰기' 애니메이션 재생.
+            - `Fall` 상태: '낙하 루프' 애니메이션 재생.
+        - **상태 전이 규칙 설정:**
+            - `Idle` -> `WalkRun`: `Speed > 0`
+            - `WalkRun` -> `Idle`: `Speed == 0`
+            - `Idle` 또는 `WalkRun` -> `Fall`: `IsFalling == true`
+            - `Fall` -> `Idle`: `IsFalling == false`
+
+- **최종 조치:** `AMyRemoteCharacter`의 블루프린트에서 `Skeletal Mesh Component`의 `Anim Class`가 위에서 작업한 애니메이션 블루프린트로 지정되었는지 확인.

@@ -57,9 +57,11 @@ private:
     float TimeSinceLastSend = 0.0f;
     float SendInterval = 0.1f;
 
-    // 마지막으로 전송한 위치/회전
+    // 마지막으로 전송한 위치/회전/속도/점프 상태
     FVector LastSentLocation;
     FRotator LastSentRotation;
+    float LastSentSpeed;
+    bool LastSentIsFalling;
 
     // 원격 캐릭터 클래스
     UClass* RemoteCharacterClass;

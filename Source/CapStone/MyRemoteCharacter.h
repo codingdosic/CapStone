@@ -19,15 +19,26 @@ public:
 
     void SetName(const FString& Name);
 
+    // UPROPERTY()를 추가하여 엔진이 안전하게 인식하도록 수정
+    UPROPERTY(VisibleAnywhere, Category = "Movement")
     FVector TargetLocation;
+
+    // UPROPERTY()를 추가하여 엔진이 안전하게 인식하도록 수정
+    UPROPERTY(VisibleAnywhere, Category = "Movement")
     FRotator TargetRotation;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
     float InterpSpeed = 5.0f;
 
+    UPROPERTY(BlueprintReadOnly, Category = "Animation")
+    float CurrentSpeed;
+
+    UPROPERTY(BlueprintReadOnly, Category = "Animation")
+    bool bIsFalling;
+
     AMyRemoteCharacter();
 
-    void UpdateTransformFromNetwork(const FVector& NewLocation, const FRotator& NewRotation);
+    void UpdateTransformFromNetwork(const FVector& NewLocation, const FRotator& NewRotation, float NewSpeed, bool bNewIsFalling);
 
     virtual void Tick(float DeltaTime) override;
 

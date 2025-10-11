@@ -49,9 +49,11 @@ void AMyRemoteCharacter::Tick(float DeltaTime)
 	SetActorLocationAndRotation(NewLoc, NewRot);
 }
 
-void AMyRemoteCharacter::UpdateTransformFromNetwork(const FVector& NewLoc, const FRotator& NewRot)
+void AMyRemoteCharacter::UpdateTransformFromNetwork(const FVector& NewLoc, const FRotator& NewRot, float NewSpeed, bool bNewIsFalling)
 {
 	TargetLocation = NewLoc;
 	TargetRotation = NewRot;
+	CurrentSpeed = NewSpeed;
+	bIsFalling = bNewIsFalling;
 }
 

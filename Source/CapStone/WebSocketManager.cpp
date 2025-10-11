@@ -6,6 +6,7 @@
 #include "Json.h"
 #include "JsonUtilities.h"
 #include "ChatWidget.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 void UWebSocketManager::Initialize(UClass* InRemoteCharacterClass, UWorld* InWorld)
 {
@@ -120,6 +121,11 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
                 JsonObject->GetNumberField("roll")
             );
 
+            // 속도 정보
+            float Speed = JsonObject->GetNumberField("speed");
+            // 점프 상태 정보
+            bool bIsFalling = JsonObject->GetBoolField("isFalling");
+
             // OwnerCharacter가 유효한지 먼저 확인
             if (!OwnerCharacter)
             {
@@ -175,7 +181,7 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
             if (OtherPlayer)
             {
                 // 위치/회전을 갱신
-                OtherPlayer->UpdateTransformFromNetwork(NewLocation, NewRotation);
+                OtherPlayer->UpdateTransformFromNetwork(NewLocation, NewRotation, Speed, bIsFalling);
                 // 이름 설정
                 OtherPlayer->SetName(SenderId);
             }
@@ -259,9 +265,13 @@ void UWebSocketManager::SendTransformData()
     FVector Location = OwnerCharacter->GetActorLocation();
     // 회전 저장
     FRotator Rotation = OwnerCharacter->GetActorRotation();
+    // 속도 저장
+    float Speed = OwnerCharacter->GetVelocity().Size();
+    // 점프 상태 저장
+    bool bIsFalling = OwnerCharacter->GetCharacterMovement()->IsFalling();
 
     // 초기 전송이 아니면서, 미세한 이동도 없으면 전송하지 않음
-    if (!bHasSentInitialTransform && Location.Equals(LastSentLocation, 0.01f) && Rotation.Equals(LastSentRotation, 0.01f))
+    if (!bHasSentInitialTransform && Location.Equals(LastSentLocation, 0.01f) && Rotation.Equals(LastSentRotation, 0.01f) && FMath::IsNearlyEqual(Speed, LastSentSpeed, 0.01f) && bIsFalling == LastSentIsFalling)
     {
         return;
     }
@@ -276,6 +286,8 @@ void UWebSocketManager::SendTransformData()
     JsonObject->SetNumberField("pitch", Rotation.Pitch); // 회전
     JsonObject->SetNumberField("yaw", Rotation.Yaw);
     JsonObject->SetNumberField("roll", Rotation.Roll);
+    JsonObject->SetNumberField("speed", Speed); // 속도
+    JsonObject->SetBoolField("isFalling", bIsFalling); // 점프 상태
 
     // JSON -> FString 으로 직렬화 
     FString OutputString;
@@ -291,5 +303,7 @@ void UWebSocketManager::SendTransformData()
     // 위치 저장하고 다음 tick에서 비교
     LastSentLocation = Location;
     LastSentRotation = Rotation;
+    LastSentSpeed = Speed;
+    LastSentIsFalling = bIsFalling;
 }
 
