@@ -2,6 +2,8 @@
 
 
 #include "MyWebSocketCharacter.h"
+#include "Components/WidgetComponent.h"
+#include "NameplateWidget.h"
 #include "CapStoneGameInstance.h"
 #include "WebSocketManager.h"
 #include "Json.h"
@@ -16,6 +18,22 @@ AMyWebSocketCharacter::AMyWebSocketCharacter()
     // 매 프레임마다 Tick 수행 여부
     PrimaryActorTick.bCanEverTick = true;
 
+    NameplateComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("NameplateComponent"));
+    NameplateComponent->SetupAttachment(RootComponent);
+    NameplateComponent->SetWidgetSpace(EWidgetSpace::Screen);
+    NameplateComponent->SetDrawSize(FVector2D(200, 30));
+
+}
+
+void AMyWebSocketCharacter::SetName(const FString& Name)
+{
+    UNameplateWidget* NameplateWidget = Cast<UNameplateWidget>(NameplateComponent->GetUserWidgetObject());
+    if (NameplateWidget)
+    {
+        // 닉네임이 길 경우 앞 4자리만 사용
+        FString DisplayName = Name.Left(4);
+        NameplateWidget->SetName(DisplayName);
+    }
 }
 
 // 캐릭터 생성 시 자동으로 호출

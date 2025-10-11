@@ -87,6 +87,10 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
         {
             // id 저장
             MySocketId = JsonObject->GetStringField("id");
+            if (OwnerCharacter)
+            {
+                OwnerCharacter->SetName(MySocketId);
+            }
         }
 
 
@@ -123,6 +127,8 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
                 return;
             }
 
+            AMyRemoteCharacter* OtherPlayer = nullptr;
+
             // 만약 맵 상에 전송자 id가 없을 시 -> 새로 접속
             if (!OwnerCharacter->OtherPlayersMap.Contains(SenderId))
             {
@@ -139,36 +145,39 @@ void UWebSocketManager::OnWebSocketMessage(const FString& Message)
                 SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
                 // 현재 월드에 AMyRemoteCharacter의 블루프린트로 T형 액터를 동적으로 전달받은 위치에 생성
-                AMyRemoteCharacter* NewPlayer = World->SpawnActor<AMyRemoteCharacter>(
+                OtherPlayer = World->SpawnActor<AMyRemoteCharacter>(
                     RemoteCharacterClass, NewLocation + FVector(0.0f, (OwnerCharacter->OtherPlayersMap.Num() + 1) * 100.0f, 0.0f), NewRotation, SpawnParams);
 
                 // 생성 성공 시
-                if (NewPlayer)
+                if (OtherPlayer)
                 {
                     // 다른 플레이어들 정보에 저장
-                    OwnerCharacter->OtherPlayersMap.Add(SenderId, NewPlayer);
+                    OwnerCharacter->OtherPlayersMap.Add(SenderId, OtherPlayer);
                     // 생성 성공 로그 출력
-                    UE_LOG(LogTemp, Warning, TEXT("Spawning new remote player for ID: %s at %s"), *SenderId, *NewPlayer->GetActorLocation().ToString());
+                    UE_LOG(LogTemp, Warning, TEXT("Spawning new remote player for ID: %s at %s"), *SenderId, *OtherPlayer->GetActorLocation().ToString());
                 }
                 // 생성 실패 시 
                 else
                 {
                     // 생성 실패 로그 출력
                     UE_LOG(LogTemp, Error, TEXT("Failed to spawn remote player for ID: %s"), *SenderId);
+                    return; // 스폰 실패 시 더 이상 진행하지 않음
                 }
             }
             // 만일 이미 스폰되어 있는 캐릭터라면
             else
             {
                 // 다른 플레이어 정보 불러오기
-                AMyRemoteCharacter* OtherPlayer = OwnerCharacter->OtherPlayersMap[SenderId];
+                OtherPlayer = OwnerCharacter->OtherPlayersMap[SenderId];
+            }
 
-                // 정보가 있다면
-                if (OtherPlayer)
-                {
-                    // 위치/회전을 갱신
-                    OtherPlayer->UpdateTransformFromNetwork(NewLocation, NewRotation);
-                }
+            // 정보가 있다면
+            if (OtherPlayer)
+            {
+                // 위치/회전을 갱신
+                OtherPlayer->UpdateTransformFromNetwork(NewLocation, NewRotation);
+                // 이름 설정
+                OtherPlayer->SetName(SenderId);
             }
         }
         else if (Type == "chat")

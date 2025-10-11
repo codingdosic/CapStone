@@ -6,12 +6,19 @@
 #include "GameFramework/Character.h"
 #include "MyRemoteCharacter.generated.h"
 
+class UWidgetComponent;
+
 UCLASS()
 class CAPSTONE_API AMyRemoteCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
 public:
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
+    UWidgetComponent* NameplateComponent;
+
+    void SetName(const FString& Name);
+
     FVector TargetLocation;
     FRotator TargetRotation;
 

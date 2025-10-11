@@ -10,12 +10,19 @@
 #include "WebSocketManager.h"
 #include "MyWebSocketCharacter.generated.h"
 
+class UWidgetComponent;
+
 UCLASS()
 class CAPSTONE_API AMyWebSocketCharacter : public ACapStoneCharacter
 {
 	GENERATED_BODY()
 
 public:
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
+    UWidgetComponent* NameplateComponent;
+
+    void SetName(const FString& Name);
+
 	// 생성자
 	AMyWebSocketCharacter();
 	// 고유 id 
